@@ -37,7 +37,7 @@ See the [paper](https://arxiv.org/abs/2507.14239) for details.
 
 ## Updates
 
-* **2023-07-08**: Initial code release.
+* **2025-10-01**: Initial code release.
 
 ---
 
