@@ -1,0 +1,187 @@
+Code for the EMNLP 2025 Findings paper:
+**[CCL-XCoT: An Efficient Cross-Lingual Knowledge Transfer Method for Mitigating Hallucination Generation](https://arxiv.org/abs/2507.14239)**
+
+**Authors:** Weihua Zheng, Roy Ka-Wei Lee, Zhengyuan Liu, Kui Wu, AiTi Aw, Bowei Zou
+
+---
+
+## Table of Contents
+
+* [Overview](#overview)
+* [Updates](#updates)
+* [Setup](#setup)
+
+  * [Environment](#environment)
+  * [Datasets & Preprocessing](#datasets--preprocessing)
+* [Pretraining](#pretraining)
+
+  * [Common Instructions](#common-instructions)
+  * [Pretrain `google/gemma-7b` on NL Data](#pretrain-googlegemma-7b-on-nl-data)
+* [SFT Training](#sft-training)
+* [Citation](#citation)
+* [Security](#security)
+* [License](#license)
+
+---
+
+## Overview
+
+<p align="center">
+  <img src="static/llms_contraclm.png" width="500" alt="ContraCLM Overview"/>
+</p>
+
+Multilingual LLMs (MLLMs) generalize well across languages but still hallucinate—especially in low-resource languages—due to data imbalance. We propose **CCL-XCoT** (Curriculum-based Contrastive Learning + Cross-lingual Chain-of-Thought), a **two-stage** fine-tuning framework:
+
+1. **Curriculum-based Contrastive Learning + Next-Token Prediction** during continued pretraining to enhance cross-lingual semantic alignment.
+2. **Cross-lingual Chain-of-Thought (XCoT)** during instruction fine-tuning: reason in a high-resource language, then answer in the target low-resource language.
+
+See the [paper](https://arxiv.org/abs/2507.14239) for details.
+
+---
+
+## Updates
+
+* **2023-07-08**: Initial code release.
+
+---
+
+## Setup
+
+The setup includes creating environments and placing datasets in the required directories.
+
+### Environment
+
+Create two conda environments (one for data processing, one for training):
+
+```bash
+# Data processing env (Python ≥ 3.8)
+conda create -n contraclm_data_process python=3.8.12
+conda activate contraclm_data_process
+pip install -r requirements.txt
+```
+
+```bash
+# Training env (Python ≥ 3.12)
+conda create -n contraclm_for_training python=3.12.7
+conda activate contraclm_for_training
+pip install -r requirements_for_training_environment.txt
+```
+
+### Datasets & Preprocessing
+
+* **Pretraining data processing:** see [`pretraining_preprocess/`](pretraining_preprocess/).
+* **SFT data processing:** see [`sft_preprocess/`](sft_preprocess/).
+
+---
+
+## Pretraining
+
+This repository supports continued pretraining of `google/gemma-7b` on natural language (NL) data.
+
+### Common Instructions
+
+1. Prepare training and validation data at:
+
+   * `TRAIN_DIR` (training)
+   * `VALID_DIR` (validation)
+
+2. List all training flags:
+
+```bash
+python pl_trainer.py --help
+```
+
+### Pretrain `google/gemma-7b` on NL Data
+
+#### Quick Start
+
+Use the provided script:
+
+```bash
+bash runscripts/run_CCL.sh
+```
+
+* **Tip for quick debugging:** run **MLE loss only** by setting in the script:
+
+  ```bash
+  CL_Config=$(eval echo ${options[0]})
+  ```
+* Other options enable contrastive learning (CL) loss at **token-level** or **sequence-level**.
+
+#### Checkpoints & Merging
+
+After training, LoRA adapter checkpoints are saved under:
+
+```
+ContraCLM/runscripts/logs_store/deepspeed/logs/
+# e.g.
+ContraCLM/runscripts/logs_store/deepspeed/logs/CCLtext_ContraCLM_bs64_lr2e-05_steps11832_dropout_rate_0.1_warmup500_wd10_temp5/last.ckpt/
+```
+
+If you used DeepSpeed ZeRO (stage 1/2/3), convert sharded weights into a single FP32 file using `zero_to_fp32.py` (located in the same folder).
+
+Some adapter key names may need normalization before merging with the base model:
+
+```bash
+python Scripts_For_Model_Merge/fix_adapter_keys.py \
+  -i ./adapter_model.bin \
+  -o ./adapter_model_fixed.bin \
+  --force
+```
+
+Then merge the base model with the adapter:
+
+```bash
+python Scripts_For_Model_Merge/Merge_Model.py \
+  --base_model_path google/gemma-7b \
+  --adapter_checkpoint_path /path/to/adapter_dir \
+  --save_path /path/to/output_dir \
+  --dtype fp16 \
+  --device_map auto \
+  --trust_remote_code \
+  --tokenizer_fast
+```
+
+> **Next step:** After finishing **Stage 1 (sentence-level)** and merging the LoRA adapter, proceed to **Stage 2 (document-level)** training.
+
+---
+
+## SFT Training
+
+After CCL pretraining and exporting the base model with adapters, perform SFT using **[LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory)**.
+
+* Sample cross-lingual CoT data:
+  `COT_SFT_data_Samples/COT_tamil_samples.json`
+
+Reference:
+[1] Zheng et al., *“LlamaFactory: Unified Efficient Fine-Tuning of 100+ Language Models,”* ACL 2024 Demos (Paper 38).
+
+---
+
+## Citation
+
+If you use this code, please cite:
+
+```bibtex
+@misc{zheng2025cclxcotefficientcrosslingualknowledge,
+  title        = {CCL-XCoT: An Efficient Cross-Lingual Knowledge Transfer Method for Mitigating Hallucination Generation},
+  author       = {Weihua Zheng and Roy Ka-Wei Lee and Zhengyuan Liu and Kui Wu and AiTi Aw and Bowei Zou},
+  year         = {2025},
+  eprint       = {2507.14239},
+  archivePrefix= {arXiv},
+  primaryClass = {cs.CL},
+  url          = {https://arxiv.org/abs/2507.14239}
+}
+```
+
+---
+
+## Security
+
+For security issue notifications, see **[CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications)**.
+
+---
+
+## License
+
+This project is licensed under the **Apache-2.0** License.
