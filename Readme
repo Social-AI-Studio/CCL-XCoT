@@ -26,10 +26,6 @@ Code for the EMNLP 2025 Findings paper:
 
 ## Overview
 
-<p align="center">
-  <img src="static/llms_contraclm.png" width="500" alt="ContraCLM Overview"/>
-</p>
-
 Multilingual LLMs (MLLMs) generalize well across languages but still hallucinate—especially in low-resource languages—due to data imbalance. We propose **CCL-XCoT** (Curriculum-based Contrastive Learning + Cross-lingual Chain-of-Thought), a **two-stage** fine-tuning framework:
 
 1. **Curriculum-based Contrastive Learning + Next-Token Prediction** during continued pretraining to enhance cross-lingual semantic alignment.
